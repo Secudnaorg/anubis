@@ -211,6 +211,8 @@ func New(opts Options) (*Server, error) {
 
 	registerWithPrefix(anubis.APIPrefix+"pass-challenge", internal.NoStoreCache(http.HandlerFunc(result.PassChallenge)), "GET")
 	registerWithPrefix(anubis.APIPrefix+"check", internal.NoStoreCache(http.HandlerFunc(result.maybeReverseProxyHttpStatusOnly)), "")
+	// GottaPhish: récepteur du profil de détection client (log stdout, pas de store).
+	registerWithPrefix(anubis.APIPrefix+"collect", internal.NoStoreCache(http.HandlerFunc(result.gpCollect)), "POST")
 	registerWithPrefix("/", http.HandlerFunc(result.maybeReverseProxyOrPage), "")
 
 	if opts.Policy.Honeypot != nil && opts.Policy.Honeypot.Enabled {

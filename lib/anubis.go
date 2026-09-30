@@ -252,6 +252,63 @@ func (s *Server) maybeReverseProxyHttpStatusOnly(w http.ResponseWriter, r *http.
 	s.maybeReverseProxy(w, r, true)
 }
 
+// gpCollect (GottaPhish) reçoit le profil de détection collecté côté client
+// (GPU/WebGL, écran, navigator.webdriver, cores, timezone…), le score et le logge
+// sur stdout (→ Loki). Aucune persistance : Anubis reste stateless. POST same-origin
+// depuis la page de challenge (pas d'iframe/service externe).
+func (s *Server) gpCollect(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close() //nolint:errcheck
+	var p map[string]any
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10)).Decode(&p); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	lg, _ := s.getRequestLogger(r)
+	rid, _ := p["rid"].(string)
+	score, reasons := gpBotScore(p)
+	lg.Info("gp-bot-detection",
+		"rid", rid,
+		"score", score,
+		"reasons", strings.Join(reasons, ","),
+		"gpu_renderer", p["gpuRenderer"],
+		"gpu_vendor", p["gpuVendor"],
+		"webdriver", p["webdriver"],
+		"screen", p["screen"],
+		"cores", p["cores"],
+		"platform", p["platform"],
+		"timezone", p["timezone"],
+		"profile", p,
+	)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// gpBotScore applique un scoring basique sur le profil client. Plus le score est
+// élevé, plus c'est susceptible d'être un navigateur automatisé/headless.
+func gpBotScore(p map[string]any) (int, []string) {
+	score := 0
+	var reasons []string
+	low := func(k string) string { v, _ := p[k].(string); return strings.ToLower(v) }
+	rend := low("gpuRenderer")
+	if rend == "" || strings.Contains(rend, "swiftshader") || strings.Contains(rend, "llvmpipe") ||
+		strings.Contains(rend, "software") || strings.Contains(rend, "mesa") {
+		score += 40
+		reasons = append(reasons, "software_gpu")
+	}
+	if b, _ := p["webdriver"].(bool); b {
+		score += 40
+		reasons = append(reasons, "webdriver")
+	}
+	if sc := low("screen"); sc == "" || strings.HasPrefix(sc, "0x0") {
+		score += 20
+		reasons = append(reasons, "no_screen")
+	}
+	if f, ok := p["cores"].(float64); ok && f <= 1 {
+		score += 10
+		reasons = append(reasons, "low_cores")
+	}
+	return score, reasons
+}
+
 func (s *Server) maybeReverseProxyOrPage(w http.ResponseWriter, r *http.Request) {
 	s.maybeReverseProxy(w, r, false)
 }
