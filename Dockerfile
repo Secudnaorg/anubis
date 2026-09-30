@@ -1,23 +1,33 @@
+# syntax=docker/dockerfile:1
+#
 # Self-contained multi-stage build for Anubis (GottaPhish fork).
 #
 # Upstream builds the image with `ko` + `make assets`; that asset step embeds
 # generated web/wasm/css into the Go binary via go:embed and needs Go + Node +
-# Rust (wasm32). This Dockerfile reproduces it so the plain `podman build .`
-# JTE pipeline can build the fork. wasm-opt / wasm2js use the repo's pure-Go
-# wazero fallback, so no wasmtime/binaryen is required.
+# Rust (wasm32) + zstd/brotli. This Dockerfile reproduces it so the plain
+# `podman build .` JTE pipeline can build the fork. wasm-opt / wasm2js use the
+# repo's pure-Go wazero fallback (no wasmtime/binaryen needed).
+#
+# Caching (works with `podman build --layers` and BuildKit):
+#   - the toolchain install is a stable early layer, reused across builds;
+#   - npm / go module / go build / cargo registry caches are BuildKit/buildah
+#     cache mounts, so re-running `make assets` after a source change reuses the
+#     downloads and compiled artifacts instead of fetching them again.
 
 # ---- Builder: Go + Node + Rust(wasm32) ----------------------------------
 FROM golang:1.26-bookworm AS build
 
 ENV GOTOOLCHAIN=auto \
+    HUSKY=0 \
     PATH=/root/.cargo/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 # bash/git for the asset scripts, Node 22 for `npm ci` (esbuild/postcss),
-# Rust (stable) + the wasm32 target for the wasm crates.
+# zstd + brotli for asset precompression (web/build.sh), Rust (stable) + the
+# wasm32 target for the wasm crates. Stable layer -> cached across builds.
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
-        bash git ca-certificates curl xz-utils build-essential zstd; \
+        bash git ca-certificates curl xz-utils build-essential zstd brotli; \
     curl -fsSL https://deb.nodesource.com/setup_22.x | bash -; \
     apt-get install -y --no-install-recommends nodejs; \
     curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable; \
@@ -29,11 +39,18 @@ COPY . .
 
 ARG GIT_COMMIT=dev
 
-# `make assets` runs: npm ci + go mod download (deps), go generate (templ),
-# cargo wasm build, esbuild (web), postcss (xess). Then build the anubis binary
-# (static) with the generated assets embedded.
-RUN make assets
-RUN CGO_ENABLED=0 go build \
+# `make assets` runs: npm ci + go mod download + cargo fetch (deps), go generate
+# (templ), cargo wasm build, esbuild (web), postcss (xess), zstd/brotli precompress.
+# Cache mounts keep the npm/go/cargo downloads + go build cache warm across builds.
+RUN --mount=type=cache,target=/root/.npm \
+    --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cargo/registry \
+    --mount=type=cache,target=/root/.cache/go-build \
+    make assets
+
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 go build \
         -ldflags "-s -w -extldflags '-static' -X 'github.com/TecharoHQ/anubis.Version=${GIT_COMMIT}'" \
         -o /out/anubis ./cmd/anubis
 
