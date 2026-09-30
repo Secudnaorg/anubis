@@ -98,6 +98,14 @@ var (
 	}, []string{"asn", "asn_description"})
 )
 
+type BotDetectionConfig struct {
+	ScreenScore    int
+	GPUScore       int
+	WebdriverScore int
+	CoresScore     int
+	GPUList        []string // GPU renderers to flag as software
+}
+
 type Server struct {
 	challengeLocks [256]sync.Mutex
 	next           http.Handler
@@ -109,6 +117,7 @@ type Server struct {
 	opts           Options
 	ed25519Priv    ed25519.PrivateKey
 	hs512Secret    []byte
+	botDetection   *BotDetectionConfig
 }
 
 func (s *Server) getRequestLogger(r *http.Request) (*slog.Logger, *http.Request) {
@@ -264,7 +273,7 @@ func (s *Server) gpLogProfile(r *http.Request, lg *slog.Logger, gp, rid string) 
 	if err := json.Unmarshal([]byte(gp), &p); err != nil || p == nil {
 		return
 	}
-	score, reasons := gpBotScore(p)
+	score, reasons := s.gpBotScore(p)
 	lg.InfoContext(r.Context(), "gp-bot-detection",
 		"rid", rid,
 		"score", score,
@@ -282,28 +291,50 @@ func (s *Server) gpLogProfile(r *http.Request, lg *slog.Logger, gp, rid string) 
 
 // gpBotScore applique un scoring basique sur le profil client. Plus le score est
 // élevé, plus c'est susceptible d'être un navigateur automatisé/headless.
-func gpBotScore(p map[string]any) (int, []string) {
+func (s *Server) gpBotScore(p map[string]any) (int, []string) {
 	score := 0
 	var reasons []string
 	low := func(k string) string { v, _ := p[k].(string); return strings.ToLower(v) }
-	rend := low("gpuRenderer")
-	if rend == "" || strings.Contains(rend, "swiftshader") || strings.Contains(rend, "llvmpipe") ||
-		strings.Contains(rend, "software") || strings.Contains(rend, "mesa") {
-		score += 40
-		reasons = append(reasons, "software_gpu")
+
+	cfg := s.botDetection
+	if cfg == nil {
+		cfg = &BotDetectionConfig{
+			ScreenScore:    30,
+			GPUScore:       25,
+			WebdriverScore: 40,
+			CoresScore:     15,
+			GPUList:        []string{"angle", "swiftshader", "llvmpipe", "software"},
+		}
 	}
-	if b, _ := p["webdriver"].(bool); b {
-		score += 40
-		reasons = append(reasons, "webdriver")
-	}
+
+	// Headless indicator (tous OS) — pas d'écran = strong bot signal
 	if sc := low("screen"); sc == "" || strings.HasPrefix(sc, "0x0") {
-		score += 20
+		score += cfg.ScreenScore
 		reasons = append(reasons, "no_screen")
 	}
+
+	// GPU spoofing (tous OS) — software rendering
+	rend := low("gpuRenderer")
+	for _, gpu := range cfg.GPUList {
+		if rend == "" || strings.Contains(rend, gpu) {
+			score += cfg.GPUScore
+			reasons = append(reasons, "software_gpu")
+			break
+		}
+	}
+
+	// Webdriver flag — détecteur classique
+	if b, _ := p["webdriver"].(bool); b {
+		score += cfg.WebdriverScore
+		reasons = append(reasons, "webdriver")
+	}
+
+	// Cores anormalement bas (VMs/containers)
 	if f, ok := p["cores"].(float64); ok && f <= 1 {
-		score += 10
+		score += cfg.CoresScore
 		reasons = append(reasons, "low_cores")
 	}
+
 	return score, reasons
 }
 

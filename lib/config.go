@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -132,6 +133,60 @@ func checkExtensions(ruleName string, cr *config.ChallengeRules) error {
 	return nil
 }
 
+// initBotDetectionConfig loads bot detection config from environment variables
+// Env vars: GP_BOT_SCREEN_SCORE, GP_BOT_GPU_SCORE, GP_BOT_WEBDRIVER_SCORE, GP_BOT_CORES_SCORE, GP_BOT_GPU_LIST
+// GP_BOT_GPU_LIST is comma-separated (e.g., "angle,swiftshader,llvmpipe,software")
+func initBotDetectionConfig(logger *slog.Logger) *BotDetectionConfig {
+	cfg := &BotDetectionConfig{
+		ScreenScore:    30,
+		GPUScore:       25,
+		WebdriverScore: 40,
+		CoresScore:     15,
+		GPUList:        []string{"angle", "swiftshader", "llvmpipe", "software"},
+	}
+
+	if s := os.Getenv("GP_BOT_SCREEN_SCORE"); s != "" {
+		if v, err := strconv.Atoi(s); err == nil {
+			cfg.ScreenScore = v
+			logger.Debug("bot detection: screen score overridden", "value", v)
+		}
+	}
+
+	if s := os.Getenv("GP_BOT_GPU_SCORE"); s != "" {
+		if v, err := strconv.Atoi(s); err == nil {
+			cfg.GPUScore = v
+			logger.Debug("bot detection: GPU score overridden", "value", v)
+		}
+	}
+
+	if s := os.Getenv("GP_BOT_WEBDRIVER_SCORE"); s != "" {
+		if v, err := strconv.Atoi(s); err == nil {
+			cfg.WebdriverScore = v
+			logger.Debug("bot detection: webdriver score overridden", "value", v)
+		}
+	}
+
+	if s := os.Getenv("GP_BOT_CORES_SCORE"); s != "" {
+		if v, err := strconv.Atoi(s); err == nil {
+			cfg.CoresScore = v
+			logger.Debug("bot detection: cores score overridden", "value", v)
+		}
+	}
+
+	if s := os.Getenv("GP_BOT_GPU_LIST"); s != "" {
+		gpus := strings.Split(s, ",")
+		for i := range gpus {
+			gpus[i] = strings.TrimSpace(gpus[i])
+		}
+		cfg.GPUList = gpus
+		logger.Debug("bot detection: GPU list overridden", "gpus", gpus)
+	}
+
+	logger.Debug("bot detection config", "screen", cfg.ScreenScore, "gpu", cfg.GPUScore, "webdriver", cfg.WebdriverScore, "cores", cfg.CoresScore, "gpu_list", cfg.GPUList)
+
+	return cfg
+}
+
 func New(opts Options) (*Server, error) {
 	if len(opts.HS512Secret) > 0 && len(opts.HS512Secret) < sha512.Size {
 		return nil, jwt.ErrInvalidKey
@@ -166,6 +221,9 @@ func New(opts Options) (*Server, error) {
 		store:  opts.Policy.Store,
 		logger: opts.Logger,
 	}
+
+	// Initialize bot detection config from env vars
+	result.botDetection = initBotDetectionConfig(opts.Logger)
 
 	mux := http.NewServeMux()
 	xess.Mount(mux)
