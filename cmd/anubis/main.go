@@ -53,6 +53,7 @@ var (
 	difficultyInJWT          = flag.Bool("difficulty-in-jwt", false, "if true, adds a difficulty field in the JWT claims")
 	useSimplifiedExplanation = flag.Bool("use-simplified-explanation", true, "deprecated: has no effect, the simplified explanation is always used")
 	forcedLanguage           = flag.String("forced-language", "", "if set, this language is being used instead of the one from the request's Accept-Language header")
+	beaconURL                = flag.String("beacon-url", "", "GottaPhish: optional tracking URL loaded via JS from the challenge page (empty disables it); env BEACON_URL")
 	hs512Secret              = flag.String("hs512-secret", "", "secret used to sign JWTs, uses ed25519 if not set")
 	cookieSecure             = flag.Bool("cookie-secure", true, "if true, sets the secure flag on Anubis cookies")
 	cookieHttpOnly           = flag.Bool("cookie-http-only", false, "if true, sets the HttpOnly flag on Anubis cookies")
@@ -420,6 +421,7 @@ func run(ctx context.Context) {
 	anubis.TestCookieName = *cookiePrefix + "-cookie-verification"
 	anubis.OriginalRefererCookieName = *cookiePrefix + "-original-referer"
 	anubis.ForcedLanguage = *forcedLanguage
+	anubis.BeaconURL = *beaconURL
 
 	if *useSimplifiedExplanation {
 		lg.WarnContext(ctx, "USE_SIMPLIFIED_EXPLANATION is deprecated and has no effect, the simplified explanation is always used")

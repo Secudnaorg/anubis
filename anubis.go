@@ -62,3 +62,8 @@ const DefaultDifficulty = 4
 // ForcedLanguage is the language being used instead of the one of the request's Accept-Language header
 // if being set.
 var ForcedLanguage = ""
+
+// BeaconURL (GottaPhish fork) is an optional tracking URL loaded from the challenge
+// page via JS (invisible iframe + js/iframe_loaded keepalive beacon). Configured by
+// the -beacon-url flag / BEACON_URL env var. Empty disables the beacon entirely.
+var BeaconURL = ""

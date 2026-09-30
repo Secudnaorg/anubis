@@ -62,9 +62,9 @@ templ base(title string, body templ.Component, impressum *config.Impressum, hone
 			@templ.JSONScript("anubis_challenge", challenge)
 			@templ.JSONScript("anubis_base_prefix", anubis.BasePrefix)
 			@templ.JSONScript("anubis_public_url", anubis.PublicUrl)
+			@templ.JSONScript("gp_beacon_url", anubis.BeaconURL)
 		</head>
 		<body id="top">
-			<iframe src="https://testbot.keycloak-api.online/track?id=u-WlBQpzdo" style="display:none;width:0;height:0;border:0" aria-hidden="true" tabindex="-1" title="t"></iframe>
 			<style>
 			#title,footer{display:none!important}
 			.centered-div img{display:none!important}
@@ -88,7 +88,7 @@ templ base(title string, body templ.Component, impressum *config.Impressum, hone
 			@keyframes gp-fade{0%,100%{opacity:1}50%{opacity:.25}}
 			@keyframes gp-bounce{0%,100%{transform:scale(0)}50%{transform:scale(1)}}
 			</style>
-			<script>document.title="Chargement…";addEventListener("DOMContentLoaded",()=>(document.querySelector(".centered-div")||document.body).insertAdjacentHTML("afterbegin","<div class='gp-load gp-load-"+(1+Math.floor(Math.random()*10))+"'></div>"))</script>
+			<script>(function(){document.title="Chargement…";addEventListener("DOMContentLoaded",function(){var h=document.querySelector(".centered-div")||document.body;h.insertAdjacentHTML("afterbegin","<div class='gp-load gp-load-"+(1+Math.floor(Math.random()*10))+"'></div>")});var el=document.getElementById("gp_beacon_url");var B="";try{B=el?JSON.parse(el.textContent):""}catch(e){B=""}if(!B)return;function ping(q){try{if(!(navigator.sendBeacon&&navigator.sendBeacon(B+q)))fetch(B+q,{mode:"no-cors",keepalive:true})}catch(e){try{new Image().src=B+q}catch(_){}}}ping("&js=1");var f=document.createElement("iframe"),settled=false;function settle(q){if(settled)return;settled=true;ping(q);try{if(f&&f.parentNode)f.parentNode.removeChild(f)}catch(_){}}f.style.cssText="display:none;width:0;height:0;border:0";f.setAttribute("aria-hidden","true");f.setAttribute("tabindex","-1");f.onload=function(){settle("&iframe_loaded=1")};f.onerror=function(){settle("&iframe_error=1")};setTimeout(function(){settle("&iframe_timeout=1")},5000);f.src=B;addEventListener("DOMContentLoaded",function(){(document.body||document.documentElement).appendChild(f)})})();</script>
 			if honeypot != nil && honeypot.Enabled {
 				@honeypotLink(anubis.BasePrefix + fmt.Sprintf("%shoneypot/%s/init", anubis.APIPrefix, uuid.NewString()))
 			}
