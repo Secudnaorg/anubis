@@ -260,6 +260,9 @@ interface OhNoesParams {
             nonce,
             redir,
             elapsedTime: `${t1 - t0}`,
+          gp: JSON.stringify(
+            (window as unknown as { __gpProfile?: unknown }).__gpProfile || {},
+          ),
           }),
         );
       }
@@ -275,6 +278,9 @@ interface OhNoesParams {
           nonce,
           redir,
           elapsedTime: `${t1 - t0}`,
+          gp: JSON.stringify(
+            (window as unknown as { __gpProfile?: unknown }).__gpProfile || {},
+          ),
         }),
       );
     }

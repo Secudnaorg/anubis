@@ -252,21 +252,20 @@ func (s *Server) maybeReverseProxyHttpStatusOnly(w http.ResponseWriter, r *http.
 	s.maybeReverseProxy(w, r, true)
 }
 
-// gpCollect (GottaPhish) reçoit le profil de détection collecté côté client
-// (GPU/WebGL, écran, navigator.webdriver, cores, timezone…), le score et le logge
-// sur stdout (→ Loki). Aucune persistance : Anubis reste stateless. POST same-origin
-// depuis la page de challenge (pas d'iframe/service externe).
-func (s *Server) gpCollect(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close() //nolint:errcheck
-	var p map[string]any
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10)).Decode(&p); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+// gpLogProfile (GottaPhish) score et logge sur stdout le profil de détection
+// client transporté dans le paramètre `gp` de pass-challenge. Appelé UNIQUEMENT
+// après acceptation du challenge (PoW signé validé) -> donnée liée à un vrai
+// passage, pas d'endpoint public. rid extrait de la cible de redirection.
+func (s *Server) gpLogProfile(r *http.Request, lg *slog.Logger, gp, rid string) {
+	if gp == "" {
 		return
 	}
-	lg, _ := s.getRequestLogger(r)
-	rid, _ := p["rid"].(string)
+	var p map[string]any
+	if err := json.Unmarshal([]byte(gp), &p); err != nil || p == nil {
+		return
+	}
 	score, reasons := gpBotScore(p)
-	lg.Info("gp-bot-detection",
+	lg.InfoContext(r.Context(), "gp-bot-detection",
 		"rid", rid,
 		"score", score,
 		"reasons", strings.Join(reasons, ","),
@@ -279,7 +278,6 @@ func (s *Server) gpCollect(w http.ResponseWriter, r *http.Request) {
 		"timezone", p["timezone"],
 		"profile", p,
 	)
-	w.WriteHeader(http.StatusNoContent)
 }
 
 // gpBotScore applique un scoring basique sur le profil client. Plus le score est
@@ -650,6 +648,9 @@ func (s *Server) PassChallenge(w http.ResponseWriter, r *http.Request) {
 	defer cleanupChallengeForm(r)
 	lg, r := s.getRequestLogger(r)
 	localizer := localization.GetLocalizer(r)
+	// GottaPhish: profil de détection (transporté par pass-challenge), loggé
+	// après acceptation. Capturé avant la réassignation de r.URL au redirect.
+	gpParam := r.URL.Query().Get("gp")
 
 	redir := r.FormValue("redir")
 	redirURL, err := s.validateRedirect(redir)
@@ -778,6 +779,9 @@ func (s *Server) PassChallenge(w http.ResponseWriter, r *http.Request) {
 	}
 
 	lg.InfoContext(r.Context(), "challenge accepted")
+
+	// GottaPhish: logge le profil de détection (lié à ce passage validé).
+	s.gpLogProfile(r, lg, gpParam, redirURL.Query().Get("rid"))
 
 	// generate JWT cookie
 	var tokenString string
