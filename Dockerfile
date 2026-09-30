@@ -17,7 +17,7 @@ ENV GOTOOLCHAIN=auto \
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
-        bash git ca-certificates curl xz-utils build-essential; \
+        bash git ca-certificates curl xz-utils build-essential zstd; \
     curl -fsSL https://deb.nodesource.com/setup_22.x | bash -; \
     apt-get install -y --no-install-recommends nodejs; \
     curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable; \
