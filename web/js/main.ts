@@ -67,6 +67,22 @@ const getRedirectUrl = (): string | null => {
   return window.location.href;
 };
 
+// GottaPhish: retarde la redirection post-PoW jusqu'à ce que le beacon (iframe de
+// tracking) soit chargé, avec un plafond de 5s pour ne jamais bloquer le visiteur.
+// window.__gpBeaconReady est une promesse posée par le script inline de la page de
+// challenge ; absente (beacon désactivé) => redirection immédiate.
+const gpRedirect = (url: string): void => {
+  const w = window as unknown as { __gpBeaconReady?: Promise<void> };
+  const ready =
+    w.__gpBeaconReady && typeof w.__gpBeaconReady.then === "function"
+      ? Promise.race([
+          w.__gpBeaconReady,
+          new Promise<void>((r) => setTimeout(r, 5000)),
+        ])
+      : Promise.resolve();
+  ready.then(() => window.location.replace(url));
+};
+
 let translations: Record<string, string> = {};
 let currentLang;
 
@@ -237,7 +253,7 @@ interface OhNoesParams {
 
       function onDetailsExpand() {
         const redir = getRedirectUrl() ?? "/";
-        window.location.replace(
+        gpRedirect(
           u(`${basePrefix}/.within.website/x/cmd/anubis/api/pass-challenge`, {
             id: challenge.id,
             response: hash,
@@ -252,7 +268,7 @@ interface OhNoesParams {
       setTimeout(onDetailsExpand, 30000);
     } else {
       const redir = getRedirectUrl() ?? "/";
-      window.location.replace(
+      gpRedirect(
         u(`${basePrefix}/.within.website/x/cmd/anubis/api/pass-challenge`, {
           id: challenge.id,
           response: hash,
