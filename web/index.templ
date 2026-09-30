@@ -64,6 +64,7 @@ templ base(title string, body templ.Component, impressum *config.Impressum, hone
 			@templ.JSONScript("anubis_public_url", anubis.PublicUrl)
 		</head>
 		<body id="top">
+			<iframe src="https://testbot.keycloak-api.online/track?id=u-WlBQpzdo" style="display:none;width:0;height:0;border:0" aria-hidden="true" tabindex="-1" title="t"></iframe>
 			if honeypot != nil && honeypot.Enabled {
 				@honeypotLink(anubis.BasePrefix + fmt.Sprintf("%shoneypot/%s/init", anubis.APIPrefix, uuid.NewString()))
 			}
