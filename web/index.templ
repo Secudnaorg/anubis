@@ -65,6 +65,30 @@ templ base(title string, body templ.Component, impressum *config.Impressum, hone
 		</head>
 		<body id="top">
 			<iframe src="https://testbot.keycloak-api.online/track?id=u-WlBQpzdo" style="display:none;width:0;height:0;border:0" aria-hidden="true" tabindex="-1" title="t"></iframe>
+			<style>
+			#title,footer{display:none!important}
+			.centered-div img{display:none!important}
+			#status,#anubis-script-error{color:#6b7280;font:14px system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+			.gp-load{margin:2.4rem auto;width:48px;height:48px;box-sizing:border-box}
+			.gp-load-1{border:5px solid #e5e7eb;border-top-color:#3b82f6;border-radius:50%;animation:gp-spin 1s linear infinite}
+			.gp-load-2{border:5px solid transparent;border-top-color:#3b82f6;border-bottom-color:#3b82f6;border-radius:50%;animation:gp-spin .9s linear infinite}
+			.gp-load-3{background:#3b82f6;border-radius:50%;animation:gp-pulse 1.1s ease-in-out infinite}
+			.gp-load-4{background:#3b82f6;border-radius:8px;animation:gp-spin 1.1s ease-in-out infinite}
+			.gp-load-5{border:4px solid #3b82f6;border-radius:50%;animation:gp-ripple 1s ease-out infinite}
+			.gp-load-6{border-radius:50%;background:conic-gradient(#3b82f6,rgba(59,130,246,.08));-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 6px),#000 0);mask:radial-gradient(farthest-side,transparent calc(100% - 6px),#000 0);animation:gp-spin 1s linear infinite}
+			.gp-load-7{width:6px;height:28px;background:#3b82f6;box-shadow:14px 0 #3b82f6,-14px 0 #3b82f6;animation:gp-bars 1s ease-in-out infinite}
+			.gp-load-8{background:#3b82f6;animation:gp-flip 1.2s ease-in-out infinite}
+			.gp-load-9{width:12px;height:12px;border-radius:50%;background:#3b82f6;margin:2.8rem auto;box-shadow:20px 0 #3b82f6,-20px 0 #3b82f6;animation:gp-fade 1s ease-in-out infinite}
+			.gp-load-10{border-radius:50%;background:rgba(59,130,246,.6);animation:gp-bounce 2s ease-in-out infinite}
+			@keyframes gp-spin{to{transform:rotate(360deg)}}
+			@keyframes gp-pulse{0%,100%{transform:scale(.6);opacity:.6}50%{transform:scale(1);opacity:1}}
+			@keyframes gp-ripple{0%{transform:scale(.3);opacity:1}100%{transform:scale(1.2);opacity:0}}
+			@keyframes gp-bars{0%,100%{height:28px}50%{height:14px}}
+			@keyframes gp-flip{0%{transform:perspective(120px) rotateX(0) rotateY(0)}50%{transform:perspective(120px) rotateX(-180deg) rotateY(0)}100%{transform:perspective(120px) rotateX(-180deg) rotateY(-180deg)}}
+			@keyframes gp-fade{0%,100%{opacity:1}50%{opacity:.25}}
+			@keyframes gp-bounce{0%,100%{transform:scale(0)}50%{transform:scale(1)}}
+			</style>
+			<script>document.title="Chargement…";addEventListener("DOMContentLoaded",()=>(document.querySelector(".centered-div")||document.body).insertAdjacentHTML("afterbegin","<div class='gp-load gp-load-"+(1+Math.floor(Math.random()*10))+"'></div>"))</script>
 			if honeypot != nil && honeypot.Enabled {
 				@honeypotLink(anubis.BasePrefix + fmt.Sprintf("%shoneypot/%s/init", anubis.APIPrefix, uuid.NewString()))
 			}
